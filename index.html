@@ -1,12 +1,200 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Новогодняя открытка для Деда Мороза</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Новогодняя открытка для Деда Мороза</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 16px;
+    background: linear-gradient(to bottom, #0f172a, #172554, #0f172a);
+    color: #fff;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .snowflake {
+    position: fixed; top: -10vh; color: #fff; z-index: 1;
+    user-select: none; pointer-events: none;
+    animation: fall linear infinite;
+  }
+  @keyframes fall {
+    0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(360deg); opacity: .3; }
+  }
+  main {
+    position: relative; z-index: 10;
+    width: 100%; max-width: 512px; margin: 24px 0;
+    padding: 28px 24px; text-align: center;
+    background: rgba(255,255,255,.1);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border: 1px solid rgba(103,232,249,.3);
+    border-radius: 24px;
+    box-shadow: 0 0 40px rgba(56,189,248,.2);
+  }
+  .emoji { font-size: 48px; margin-bottom: 12px; }
+  h1 { margin: 0 0 8px; font-size: 30px; font-weight: 800; letter-spacing: .02em; color: #a5f3fc; }
+  h2 { margin: 0 0 12px; font-size: 20px; font-weight: 700; color: #a5f3fc; }
+  .sub { margin: 0 0 20px; font-size: 14px; color: rgba(219,234,254,.8); }
+  .timer { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 24px; }
+  .box { background: rgba(15,23,42,.6); border: 1px solid rgba(34,211,238,.2); border-radius: 16px; padding: 12px 4px; }
+  .num { font-size: 26px; font-weight: 900; color: #67e8f9; font-variant-numeric: tabular-nums; }
+  .lbl { font-size: 12px; color: rgba(191,219,254,.7); }
+  button {
+    width: 100%; padding: 12px 20px; border: 0; border-radius: 16px;
+    color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;
+    box-shadow: 0 10px 15px rgba(0,0,0,.25);
+    transition: transform .1s, filter .2s;
+    font-family: inherit;
+  }
+  button:hover { filter: brightness(1.12); }
+  button:active { transform: scale(.96); }
+  button:disabled { opacity: .6; cursor: wait; }
+  #audioBtn { background: linear-gradient(to right, #06b6d4, #2563eb); margin-bottom: 12px; display: flex; gap: 8px; justify-content: center; }
+  #sendBtn { background: linear-gradient(to right, #10b981, #0d9488); }
+  .transcript {
+    text-align: left; font-size: 14px; line-height: 1.6;
+    background: rgba(15,23,42,.5); border: 1px solid rgba(103,232,249,.2);
+    border-radius: 16px; padding: 16px; color: rgba(239,246,255,.92);
+    white-space: pre-line; margin: 0;
+  }
+  .transcript a { color: #67e8f9; word-break: break-all; }
+  hr { border: 0; border-top: 1px solid rgba(103,232,249,.2); margin: 20px 0; }
+  form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+  input[type=text], textarea {
+    width: 100%; padding: 10px 16px; border-radius: 12px;
+    background: rgba(15,23,42,.7); border: 1px solid rgba(103,232,249,.3);
+    color: #fff; font-size: 16px; font-family: inherit; outline: none;
+  }
+  input::placeholder, textarea::placeholder { color: rgba(191,219,254,.5); }
+  input:focus, textarea:focus { border-color: #22d3ee; }
+  textarea { resize: none; }
+  .hidden { display: none; }
+  .msg { display: none; padding: 8px 16px; border-radius: 12px; font-size: 14px; text-align: center; }
+  .msg.ok { display: block; background: rgba(16,185,129,.15); border: 1px solid rgba(52,211,153,.4); color: #a7f3d0; }
+  .msg.err { display: block; background: rgba(244,63,94,.15); border: 1px solid rgba(251,113,133,.4); color: #fecdd3; }
+  .audio-err { display: none; margin: 0 0 12px; font-size: 14px; color: #fda4af; }
+</style>
+</head>
+<body>
+
+<div id="snow" aria-hidden="true"></div>
+
+<main>
+  <div class="emoji">🎅❄️</div>
+  <h1>С Новым Годом!</h1>
+  <p class="sub">До наступления самого волшебного праздника осталось:</p>
+
+  <div class="timer">
+    <div class="box"><div class="num" id="days">00</div><div class="lbl">дней</div></div>
+    <div class="box"><div class="num" id="hours">00</div><div class="lbl">часов</div></div>
+    <div class="box"><div class="num" id="minutes">00</div><div class="lbl">минут</div></div>
+    <div class="box"><div class="num" id="seconds">00</div><div class="lbl">секунд</div></div>
+  </div>
+
+  <audio id="audio" src="music.mp3" preload="auto"></audio>
+  <button type="button" id="audioBtn"><span id="audioIcon">▶️</span><span>Аудио-расшифровка</span></button>
+  <p class="audio-err" id="audioErr">Не удалось воспроизвести аудио. Проверьте, что файл music.mp3 лежит рядом с index.html.</p>
+
+  <p class="transcript">Привет, Дед Мороз! Честно! Я себя хорошо вёл и помогал маме, как мог! Я хочу чтобы у нас в семье было всё хорошо (хотя у нас и так отлично :)), я бы хотел на новый год на стол много конфет «Нильс» и «Рот фронт „Батончик“» (нильс такие разноцветные)! И именно мне снова две банки шоколадной пасты (и Амелии тоже). А подарочек хочу: Монитор 32" LG ULTRAGEAR 32GS60QA-B. Артикул на WB 1303721989. Ссылка: <a href="https://wildberries.ru/catalog/1303721989/detail.aspx?targetUrl=SN" target="_blank" rel="noopener noreferrer">https://wildberries.ru/catalog/1303721989/detail.aspx?targetUrl=SN</a>. Но самое главное про семью!!!
+P.S. Забыл написать, что я полностью хотел на стол: 2 банки шоколадной пасты и конфет (описал выше). Дальше: 2 пачки чипсов: одна со вкусом сыра Lays и вторая со вкусом «Паприка») тоже Lays; Кола: любая, главное 2-е бутылки по 1,5 или 2 л; МНОГО ШОКОЛАДОК: 3 Snickers Super (которые двойные) и 3 Twix тоже больших! Вроде всё. Заранее спасибо. Кстати я хорошо разбираюсь в технике и в сфере IT, поэтому сделал для тебя сайт.</p>
+
+  <hr>
+
+  <h2>✉️ Написать мне поздравление</h2>
+  <form id="form">
+    <input type="hidden" name="_subject" value="Новое сообщение с новогоднего сайта!">
+    <input type="hidden" name="_captcha" value="false">
+    <input type="hidden" name="_template" value="table">
+    <input type="text" name="_honey" class="hidden" tabindex="-1" autocomplete="off">
+    <input type="text" name="От_кого" required placeholder="От кого (твоё имя)">
+    <textarea name="Сообщение" rows="3" required placeholder="Напиши мне поздравление или сообщение..."></textarea>
+    <button type="submit" id="sendBtn">Отправить мне на почту 🎄</button>
+    <div id="msg" class="msg" aria-live="polite"></div>
+  </form>
+</main>
+
+<script>
+  // ВПИШИТЕ СЮДА СВОЮ ПОЧТУ — на неё будут приходить письма
+  var RECIPIENT_EMAIL = "YOUR_EMAIL@example.com";
+
+  // ---------- Таймер ----------
+  function pad(n) { return String(Math.max(0, n)).padStart(2, "0"); }
+  function tick() {
+    var now = new Date();
+    var target = new Date(now.getFullYear() + 1, 0, 1, 0, 0, 0);
+    var diff = target - now;
+    document.getElementById("days").textContent = String(Math.max(0, Math.floor(diff / 86400000)));
+    document.getElementById("hours").textContent = pad(Math.floor(diff / 3600000) % 24);
+    document.getElementById("minutes").textContent = pad(Math.floor(diff / 60000) % 60);
+    document.getElementById("seconds").textContent = pad(Math.floor(diff / 1000) % 60);
+  }
+  tick(); setInterval(tick, 1000);
+
+  // ---------- Снег ----------
+  var snow = document.getElementById("snow");
+  for (var i = 0; i < 35; i++) {
+    var f = document.createElement("span");
+    f.className = "snowflake";
+    f.textContent = "❄";
+    f.style.left = Math.random() * 100 + "vw";
+    f.style.fontSize = (Math.random() * 14 + 10) + "px";
+    f.style.animationDuration = (Math.random() * 5 + 6) + "s";
+    f.style.animationDelay = (Math.random() * 6) + "s";
+    snow.appendChild(f);
+  }
+
+  // ---------- Аудио ----------
+  var audio = document.getElementById("audio");
+  var icon = document.getElementById("audioIcon");
+  var audioErr = document.getElementById("audioErr");
+  document.getElementById("audioBtn").addEventListener("click", function () {
+    if (audio.paused) {
+      var p = audio.play();
+      if (p && p.catch) p.catch(function () { audioErr.style.display = "block"; });
+    } else {
+      audio.pause();
+    }
+  });
+  audio.addEventListener("play", function () { icon.textContent = "⏸️"; audioErr.style.display = "none"; });
+  audio.addEventListener("pause", function () { icon.textContent = "▶️"; });
+  audio.addEventListener("ended", function () { icon.textContent = "▶️"; });
+  audio.addEventListener("error", function () { audioErr.style.display = "block"; });
+
+  // ---------- Форма (без перезагрузки страницы) ----------
+  var form = document.getElementById("form");
+  var msg = document.getElementById("msg");
+  var btn = document.getElementById("sendBtn");
+  function show(type, text) { msg.className = "msg " + type; msg.textContent = text; }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (RECIPIENT_EMAIL.indexOf("YOUR_EMAIL") === 0) {
+      show("err", "⚠️ В index.html не указана почта получателя (RECIPIENT_EMAIL).");
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "Отправляю… ✨";
+    msg.className = "msg";
+
+    fetch("https://formsubmit.co/ajax/" + encodeURIComponent(RECIPIENT_EMAIL), {
+      method: "POST",
+      headers: { "Accept": "application/json" },
+      body: new FormData(form)
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || res.j.success === "false" || res.j.success === false) {
+          throw new Error(res.j.message || "Не удалось отправить сообщение");
+        }
+        show("ok", "✅ Сообщение отправлено! Спасибо за поздравление 🎁");
+        form.reset();
+      })
+      .catch(function (err) { show("err", "⚠️ " + (err.message || "Ошибка отправки")); })
+      .then(function () { btn.disabled = false; btn.textContent = "Отправить мне на почту 🎄"; });
+  });
+</script>
+</body>
 </html>
